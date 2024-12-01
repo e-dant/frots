@@ -16,8 +16,8 @@ Reads standard input into the specified `file` (`-f`) until:
 
 If `file` grows to reach or exceed the `limit` (`-s`), then:
 1. Synchronize `file` with the disk.
-2. In the range 1..`R` (where `R` is `-r`, `--num-rotate`),
-   rename `file.N` to `file.N+1` if `N < R`. (I.e., rotate the files.)
+2. In the range `R`..1 (where `R` is `-r`, `--num-rotate`),
+   rename `file.N` to `file.N+1` if `N + 1 < R`. (I.e., rotate the files.)
 3. Rename `file` `file.1`
 4. Create or open the specified file and continue writing to it.
 

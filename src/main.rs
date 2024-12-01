@@ -25,9 +25,9 @@ Reads standard input into the specified `file` (`-f`) until:
   and exit with a returncode of 1.
 
 If `file` grows to reach or exceed the `limit` (`-s`), then:
-1. Synchronize `file` with the disk.
-2. In the range 1..`R` (where `R` is `-r`, `--num-rotate`),
-   rename `file.N` to `file.N+1` if `N < R`. (I.e., rotate the files.)
+1. Synchronize `file` with the underlying filesystem.
+2. In the range `R`..1 (where `R` is `-r`, `--num-rotate`),
+   rename `file.N` to `file.N+1` if `N + 1 < R`. (I.e., rotate the files.)
 3. Rename `file` `file.1`
 4. Create or open the specified file and continue writing to it.
 
@@ -39,7 +39,7 @@ some-prog | frots -f /var/log/prog/a.log -s 1G -r 2 --tee -v
 
 Notes:
 - "Rename" file operations mean "in place" renaming, as-if with `rename()`, not copy-and-move.
-- "Synchronize" file operations mean to-disk synchronization, as-if with `fsync()`.
+- "Synchronize" file operations mean to-filesystem synchronization, as-if with `fsync()`.
 "#)]
 struct Cli {
     /// The name of the file to write to
@@ -62,17 +62,12 @@ struct Cli {
     verbose: bool,
 }
 
-fn rot_nr_scheme(num_rotate: u16) -> impl Iterator<Item = (u16, u16)> {
-    let xs = 0..num_rotate;
-    let ys = 1..=num_rotate;
-    xs.rev().zip(ys.rev()).filter(move |(_, y)| *y < num_rotate)
+fn rot_nr_scheme(num_rot: u16) -> impl Iterator<Item = (u16, u16)> {
+    (0..num_rot).zip(1..num_rot).rev()
 }
 
-fn rot_file_scheme(
-    file_path: &str,
-    num_rotate: u16,
-) -> impl Iterator<Item = (String, String)> + '_ {
-    let w_file_path = move |(from, to)| {
+fn rot_file_scheme(file_path: &str, num_rot: u16) -> impl Iterator<Item = (String, String)> + '_ {
+    let with_file_path = move |(from, to)| {
         let from = match from {
             0 => format!("{file_path}"),
             n => format!("{file_path}.{n}"),
@@ -80,11 +75,11 @@ fn rot_file_scheme(
         let to = format!("{file_path}.{to}");
         (from, to)
     };
-    rot_nr_scheme(num_rotate).map(w_file_path)
+    rot_nr_scheme(num_rot).map(with_file_path)
 }
 
-fn rot(file_path: &str, num_rotate: u16) -> Result<File> {
-    for (from, to) in rot_file_scheme(file_path, num_rotate) {
+fn rot(file_path: &str, num_rot: u16) -> Result<File> {
+    for (from, to) in rot_file_scheme(file_path, num_rot) {
         info!("Renaming {from} -> {to}");
         rename(&from, &to)?;
     }
@@ -98,7 +93,7 @@ fn main() -> Result<()> {
     }
     env_logger::init();
     let file_sz_lim: usize = Byte::parse_str(args.file_sz_lim, args.b_is_bits)?.try_into()?;
-    let num_rotate = match args.num_rotate {
+    let num_rot = match args.num_rotate {
         0 => return Err(anyhow!("`num_rotate` must be >= 1")),
         n => n,
     };
@@ -108,11 +103,11 @@ fn main() -> Result<()> {
     let mut buf = String::with_capacity(4096);
     info!(
         "Rotation scheme: [(from, to),...] {:?}",
-        rot_file_scheme(file_path, num_rotate).collect::<Vec<_>>()
+        rot_file_scheme(file_path, num_rot).collect::<Vec<_>>()
     );
     if file.metadata()?.len() as usize > file_sz_lim {
-        info!("Rotating (initial sz >= lim={file_sz_lim}, R={num_rotate})");
-        rot(file_path, num_rotate)?;
+        info!("Rotating (initial sz >= lim={file_sz_lim}, R={num_rot})");
+        rot(file_path, num_rot)?;
     }
     loop {
         let n = stdin().read_line(&mut buf)?;
@@ -124,12 +119,12 @@ fn main() -> Result<()> {
             print!("{buf}");
         }
         if file_sz >= file_sz_lim {
-            info!("Rotating (sz={file_sz} >= lim={file_sz_lim}, R={num_rotate})");
+            info!("Rotating (sz={file_sz} >= lim={file_sz_lim}, R={num_rot})");
             file_sz = 0;
             if let Err(e) = file.sync_all() {
-                error!("Error syncing file w/ disk: {e}");
+                error!("Error syncing file w/ fs: {e}");
             }
-            file = rot(file_path, num_rotate)?;
+            file = rot(file_path, num_rot)?;
         }
         file.write_all(buf.as_bytes())?;
         buf.clear();
