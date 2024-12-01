@@ -1,0 +1,16 @@
+[package]
+name = "frots"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/e-dant/frots"
+readme = "readme.md"
+license = "MIT OR Apache-2.0"
+description = "File rotation from standard input"
+categories = ["command-line-interface", "command-line-utilities", "development-tools", "filesystems"]
+
+[dependencies]
+anyhow = "1.0.93"
+byte-unit = "5.1.6"
+clap = { version = "4.5.21", features = ["derive"] }
+env_logger = "0.11.5"
+log = "0.4.22"
