@@ -6,7 +6,7 @@ repository = "https://github.com/e-dant/frots"
 readme = "readme.md"
 license = "MIT OR Apache-2.0"
 description = "File rotation from standard input"
-categories = ["command-line-interface", "command-line-utilities", "development-tools", "filesystems"]
+categories = ["command-line-interface", "command-line-utilities", "development-tools", "filesystem"]
 
 [dependencies]
 anyhow = "1.0.93"
