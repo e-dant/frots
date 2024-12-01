@@ -19,12 +19,12 @@ under the hood to move the primary logfile into rotation, which confuses program
 already writing to it (they will now be writing to the rotated file, which is weird).
 `frots` was primarily made to solve that problem.
 
-Reads standard input into the specified `file` (`-f`) until
+Reads standard input into the specified `file` (`-f`) until:
 - Standard input reaches EOF. This is the normal, and we exit normally.
 - Unrecoverable errors occur. In this case, we display an error message
   and exit with a returncode of 1.
 
-If *after* writing a line to `file` it grows to reach or exceed the `limit` (`-s`)
+If `file` grows to reach or exceed the `limit` (`-s`), then:
 1. Synchronize `file` with the disk.
 2. In the range 1..`R` (where `R` is `-r`, `--num-rotate`),
    rename `file.N` to `file.N+1` if `N < R`. (I.e., rotate the files.)
@@ -83,6 +83,14 @@ fn rot_file_scheme(
     rot_nr_scheme(num_rotate).map(w_file_path)
 }
 
+fn rot(file_path: &str, num_rotate: u16) -> Result<File> {
+    for (from, to) in rot_file_scheme(file_path, num_rotate) {
+        info!("Renaming {from} -> {to}");
+        rename(&from, &to)?;
+    }
+    Ok(File::create(file_path)?)
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
     if args.verbose {
@@ -102,6 +110,10 @@ fn main() -> Result<()> {
         "Rotation scheme: [(from, to),...] {:?}",
         rot_file_scheme(file_path, num_rotate).collect::<Vec<_>>()
     );
+    if file.metadata()?.len() as usize > file_sz_lim {
+        info!("Rotating (initial sz >= lim={file_sz_lim}, R={num_rotate})");
+        rot(file_path, num_rotate)?;
+    }
     loop {
         let n = stdin().read_line(&mut buf)?;
         file_sz += n;
@@ -117,13 +129,7 @@ fn main() -> Result<()> {
             if let Err(e) = file.sync_all() {
                 error!("Error syncing file w/ disk: {e}");
             }
-            for (from, to) in rot_file_scheme(file_path, num_rotate) {
-                info!("Renaming {from} -> {to}");
-                if let Err(e) = rename(&from, &to) {
-                    error!("Error rotating file: {e}");
-                }
-            }
-            file = File::create(file_path)?;
+            file = rot(file_path, num_rotate)?;
         }
         file.write_all(buf.as_bytes())?;
         buf.clear();

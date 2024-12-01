@@ -9,12 +9,12 @@ under the hood to move the primary logfile into rotation, which confuses program
 already writing to it (they will now be writing to the rotated file, which is weird).
 `frots` was primarily made to solve that problem.
 
-Reads standard input into the specified `file` (`-f`) until
+Reads standard input into the specified `file` (`-f`) until:
 - Standard input reaches EOF. This is the normal, and we exit normally.
 - Unrecoverable errors occur. In this case, we display an error message
   and exit with a returncode of 1.
 
-If *after* writing a line to `file` it grows to reach or exceed the `limit` (`-s`)
+If `file` grows to reach or exceed the `limit` (`-s`), then:
 1. Synchronize `file` with the disk.
 2. In the range 1..`R` (where `R` is `-r`, `--num-rotate`),
    rename `file.N` to `file.N+1` if `N < R`. (I.e., rotate the files.)
