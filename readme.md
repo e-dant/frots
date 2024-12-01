@@ -1,7 +1,6 @@
 # `frots`: File rotation from standard input
 
 [![crates.io](https://img.shields.io/crates/v/frots.svg)](https://crates.io/crates/frots)
-[![docs.rs](https://docs.rs/frots/badge.svg)](https://docs.rs/frots)
 
 The only file rotation tool I'm aware of that *actually handles stdout*.
 
