@@ -80,8 +80,9 @@ fn rot_file_scheme(file_path: &str, num_rot: u16) -> impl Iterator<Item = (Strin
 
 fn rot(file_path: &str, num_rot: u16) -> Result<File> {
     for (from, to) in rot_file_scheme(file_path, num_rot) {
-        info!("Renaming {from} -> {to}");
-        rename(&from, &to)?;
+        if let Err(e) = rename(&from, &to) {
+            error!("Error renaming {from} -> {to}: {e}");
+        }
     }
     Ok(File::create(file_path)?)
 }
